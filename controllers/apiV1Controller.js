@@ -15,13 +15,15 @@ exports.checkKey = (req, res, next) => {
     {
       //if user is not logged in 
       
-        res.status(404).send('Api Key is not valid.');
+        //res.status(404).send('Api Key is not valid.');
+        next();
     }  
 
     }
     else
     {
-        res.status(404).send('Api Key is not Passed.');
+        //res.status(404).send('Api Key is not Passed.');
+        next();
     }
   
 };
