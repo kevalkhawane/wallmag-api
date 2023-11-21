@@ -4,6 +4,10 @@ const SliderModel = require('../models/sliderModel');
 const UUID = require('../models/uuid-model');
 
 
+exports.badRequest = (req, res, next) => {
+    res.status(404).send("Bad Request");
+};
+
 exports.checkKey = (req, res, next) => {
     if(req.headers['api-key']){
         const apiKey = req.headers['api-key'].toString();
@@ -70,13 +74,33 @@ exports.getWidget = async (req, res, next) => {
 exports.getSlider = async (req, res, next) => { 
 
     // get slider 
-  const slider = await SliderModel.findById(process.env.SLIDER_ID);
+  var slider = await SliderModel.findOne();
+
+  if(slider==null){
+    //Create model
+    await SliderModel({
+        tags: ["Tags"],      
+        topic: "featured topic",
+        tag: "tag",
+        post1:"post",
+        post2:"post",
+        post3:"post",
+        post4:"post",
+        post5:"post",
+        topic1:"topic",
+        topic2:"topic",
+        topic3:"topic",
+        topic4:"topic",
+        topic5:"topic"          
+    }).save();
+    slider = await SliderModel.findOne();    
+  }
 
   //get latest posts
   const LatestPosts = await PostModel.find({haveContent:true}).sort({ lastUpdated: -1 }).limit(6).select('_id thumbnail');   
 
   // get featured Topic
-  const Topic = await TopicModel.findById(slider.topic);
+  const Topic = await TopicModel.findOne();
   const TopicPosts = await PostModel.find({topic:Topic._id}).sort({ lastUpdated: 1 }).limit(6).select('_id thumbnail part');
 
   //get posts by Tag
@@ -285,157 +309,206 @@ exports.getTopicById = async (req, res, next) => {
 
     res.send({topic,posts})
 };
-
-exports.bookmarkById = async (req, res, next) => { 
+// BOOKMARK BY ID
+exports.bookmarkById = async (req, res, next) => {
     if(req.headers['uuid-key']){
         const UserId = req.headers['uuid-key'].toString();
         const postId = req.params.postId;
 
-        if (!postId) {
-            return res.status(400).json({ error: 'Invalid postId' });
-          }
-         
+    // Find the UUID document with the specified uuid
+    let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-          // Find the UUID document with the specified uuid
-          const uuidDocument = await UUID.findOne({uuid: UserId });
-  
-          // Check if the document exists and if the postId is in the bookmarks array
-          const isPostBookmarked = uuidDocument && uuidDocument.bookmarks.includes(postId);
-  
-          if (!isPostBookmarked) {
-            uuidDocument.bookmarks.push(postId);
-            await uuidDocument.save(); // Save the document with the updated bookmarks array
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
 
-            res.status(200).send({"success":"Bookmarked Succesfully"});
+        uuidDocument = await UUID.findOne({ uuid: UserId });  //get again document
+
+        if (uuidDocument.bookmarks.includes(postId)) {
+            res.send("Post is already bookmarked");
         }else{
-            res.status(200).send({"success":"Already Bookmarked"});
-        }    
+            uuidDocument.bookmarks.push(postId);        //if not found add bookmark
+            await uuidDocument.save();
+            res.status(200).send("Post bookmarked successfully.");
 
+        }  
+    }else{
+        res.send("UserID Is Not Passed");
     }
 };
 
-exports.unbookmarkById = async (req, res, next) => { 
+exports.unbookmarkById = async (req, res, next) => {
     if(req.headers['uuid-key']){
         const UserId = req.headers['uuid-key'].toString();
         const postId = req.params.postId;
 
-        if (!postId) {
-            return res.status(400).json({ error: 'Invalid postId' });
-          }
-         
+    // Find the UUID document with the specified uuid
+    let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-          // Find the UUID document with the specified uuid
-          const uuidDocument = await UUID.findOne({uuid: UserId });
-  
-          if (uuidDocument && uuidDocument.bookmarks.includes(postId)) {
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
+
+        uuidDocument = await UUID.findOne({ uuid: UserId });  //get again document
+
+        if (uuidDocument.bookmarks.includes(postId)) {
+
             uuidDocument.bookmarks = uuidDocument.bookmarks.filter(bookmark => bookmark !== postId);
             await uuidDocument.save(); // Save the document with the updated bookmarks array
-            res.status(200).send({"success":"Unbookmarked Succesfully"});
+            res.status(200).send({ "success": "Unbookmarked Succesfully" });
+           
         }else{
-            res.status(200).send({"success":"Already Unbookmarked"});
-        }
 
+           res.status(200).send({ "success": "Already Unbookmarked" });
 
+        }  
+    }else{
+        res.send("UserID Is Not Passed");
     }
 };
 
-exports.followTopic = async (req, res, next) => { 
+  
+exports.followTopic = async (req, res, next) => {
     if(req.headers['uuid-key']){
         const UserId = req.headers['uuid-key'].toString();
         const topicId = req.params.topicId;
 
-        if (!topicId) {
-            return res.status(400).json({ error: 'Invalid topicId' });
-          }         
+    // Find the UUID document with the specified uuid
+    let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-          // Find the UUID document with the specified uuid
-          const uuidDocument = await UUID.findOne({uuid: UserId });
-  
-          // Check if the document exists and if the postId is in the bookmarks array
-          const isTopicFollowed = uuidDocument && uuidDocument.topics.includes(topicId);
-  
-          if (!isTopicFollowed) {
-            uuidDocument.topics.push(topicId);
-            await uuidDocument.save(); // Save the document with the updated bookmarks array
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
 
-            res.status(200).send({"success":"Followed Succesfully"});
+        uuidDocument = await UUID.findOne({ uuid: UserId });  //get again document
+
+        if (uuidDocument.topics.includes(topicId)) {
+            res.send("topic is already followed");
         }else{
-            res.status(200).send({"success":"Already Followed"});
-        }    
+            uuidDocument.topics.push(topicId);        //if not found add bookmark
+            await uuidDocument.save();
+            res.status(200).send("topic followed successfully.");
 
+        }  
+    }else{
+        res.send("UserID Is Not Passed");
     }
 };
 
-exports.unfollowTopic = async (req, res, next) => { 
+exports.unfollowTopic = async (req, res, next) => {
     if(req.headers['uuid-key']){
         const UserId = req.headers['uuid-key'].toString();
         const topicId = req.params.topicId;
 
-        if (!topicId) {
-            return res.status(400).json({ error: 'Invalid topicId' });
-          }
-         
+    // Find the UUID document with the specified uuid
+    let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-          // Find the UUID document with the specified uuid
-          const uuidDocument = await UUID.findOne({uuid: UserId });
-  
-          if (uuidDocument && uuidDocument.topics.includes(topicId)) {
-            uuidDocument.topics = uuidDocument.topics.filter(topic => topic !== topicId);
-            await uuidDocument.save(); // Save the document with the updated bookmarks array
-            res.status(200).send({"success":"Unfollowed topic  Succesfully"});
-        }else{
-            res.status(200).send({"success":"Already Unfollowed topic"});
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
         }
+
+        uuidDocument = await UUID.findOne({ uuid: UserId });  //get again document
+
+        if (uuidDocument.topics.includes(topicId)) {
+
+            uuidDocument.topics = uuidDocument.bookmarks.filter(bookmark => bookmark !== topicId);
+            await uuidDocument.save(); // Save the document with the updated bookmarks array
+            res.status(200).send({ "success": "Unfollowed topic Succesfully" });
+           
+        }else{
+
+           res.status(200).send({ "success": "Already Unfollowed topic" });
+
+        }  
+    }else{
+        res.send("UserID Is Not Passed");
     }
 };
 
-exports.followTag = async (req, res, next) => { 
+exports.followTag = async (req, res, next) => {
     if(req.headers['uuid-key']){
         const UserId = req.headers['uuid-key'].toString();
         const tagId = req.params.tagId;
 
-        if (!tagId) {
-            return res.status(400).json({ error: 'Invalid tagId' });
-          }         
+    // Find the UUID document with the specified uuid
+    let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-          // Find the UUID document with the specified uuid
-          const uuidDocument = await UUID.findOne({uuid: UserId });
-  
-          // Check if the document exists and if the postId is in the bookmarks array
-          const istagFollowed = uuidDocument && uuidDocument.tags.includes(tagId);
-  
-          if (!istagFollowed) {
-            uuidDocument.tags.push(tagId);
-            await uuidDocument.save(); // Save the document with the updated bookmarks array
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
 
-            res.status(200).send({"success":"Followed Succesfully"});
+        uuidDocument = await UUID.findOne({ uuid: UserId });  //get again document
+
+        if (uuidDocument.tags.includes(tagId)) {
+            res.send("tag is already followed");
         }else{
-            res.status(200).send({"success":"Already Followed"});
-        }    
+            uuidDocument.tags.push(tagId);        //if not found add bookmark
+            await uuidDocument.save();
+            res.status(200).send("tag followed successfully.");
 
+        }  
+    }else{
+        res.send("UserID Is Not Passed");
     }
 };
 
-exports.unfollowTag = async (req, res, next) => { 
+exports.unfollowTag = async (req, res, next) => {
     if(req.headers['uuid-key']){
         const UserId = req.headers['uuid-key'].toString();
         const tagId = req.params.tagId;
 
-        if (!tagId) {
-            return res.status(400).json({ error: 'Invalid tagId' });
-          }
-         
+    // Find the UUID document with the specified uuid
+    let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-          // Find the UUID document with the specified uuid
-          const uuidDocument = await UUID.findOne({uuid: UserId });
-  
-          if (uuidDocument && uuidDocument.tags.includes(tagId)) {
-            uuidDocument.tags = uuidDocument.tags.filter(tag => tag !== tagId);
-            await uuidDocument.save(); // Save the document with the updated bookmarks array
-            res.status(200).send({"success":"Unfollowed tag  Succesfully"});
-        }else{
-            res.status(200).send({"success":"Already Unfollowed tag"});
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
         }
+
+        uuidDocument = await UUID.findOne({ uuid: UserId });  //get again document
+
+        if (uuidDocument.tags.includes(tagId)) {
+
+            uuidDocument.tags = uuidDocument.bookmarks.filter(bookmark => bookmark !== tagId);
+            await uuidDocument.save(); // Save the document with the updated bookmarks array
+            res.status(200).send({ "success": "Unfollowed tag Succesfully" });
+           
+        }else{
+
+           res.status(200).send({ "success": "Already Unfollowed tag" });
+
+        }  
+    }else{
+        res.send("UserID Is Not Passed");
     }
 };
 
@@ -451,58 +524,108 @@ exports.getBookmarks = async (req, res, next) => {
         limit = req.query.limit;
     }
 
-  // Find the first 10 documents and only select the 'bookmarks' field
-  const arrayOfIds = await UUID.findOne({}, 'bookmarks -_id')
-  .then(document => document.bookmarks.slice((page-1)*limit)  // Skip the first item
-  .slice(0, limit));
-  
-  const documents = await PostModel.find({ _id: { $in: arrayOfIds } }).select('_id thumbnail haveContent');
+    if(req.headers['uuid-key']){
+        const UserId = req.headers['uuid-key'].toString();    
+    
+        let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-  // Log the result or handle it as needed
-  res.send(documents);
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
+    
+
+    const arrayOfIds = await UUID.findOne({uuid:UserId},'bookmarks -_id')
+     .then(document => document.bookmarks.slice((page-1)*limit)  // Skip the first item
+     .slice(0, limit));
+
+     const documents = await PostModel.find({ _id: { $in: arrayOfIds } }).select('_id thumbnail haveContent');
+     res.send( documents );
+
+  
+    }else{
+
+        res.send({"Error":"User Not send"});
+    }
 };
 
 exports.getTopics = async (req, res, next) => { 
-
-    let page = 1;
-    if(req.query.page){
-        page = req.query.page;
-    }
-
-    let limit = 5;
-    if(req.query.limit){
-        limit = req.query.limit;
-    }
-
-  // Find the first 10 documents and only select the 'topics' field
-  const arrayOfIds = await UUID.findOne({}, 'topics -_id')
-  .then(document => document.topics.slice((page-1)*limit)  // Skip the first item
-  .slice(0, limit));
-  
-  const documents = await TopicModel.find({ _id: { $in: arrayOfIds } }).select('-description');
-
-  // Log the result or handle it as needed
-  res.send(documents);
-};
-
-exports.getTags = async (req, res, next) => { 
-
     let page = 1;
     if(req.query.page){
         page = req.query.page;
     }
  
-    let limit = 10;
+    let limit = 5;
     if(req.query.limit){
         limit = req.query.limit;
     }
 
-  // Find the first 10 documents and only select the 'tags' field
-  const mydocument = await UUID.findOne({}, 'tags -_id')
-  .then(document => document.tags.slice((page-1)*limit)  // Skip the first item
-  .slice(0, limit));
-  
+    if(req.headers['uuid-key']){
+        const UserId = req.headers['uuid-key'].toString();    
+    
+        let uuidDocument = await UUID.findOne({ uuid: UserId });
 
-  // Log the result or handle it as needed
-  res.send(mydocument);
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
+
+    const arrayOfIds = await UUID.findOne({uuid:UserId},'topics -_id')
+     .then(document => document.topics.slice((page-1)*limit)  // Skip the first item
+     .slice(0, limit));
+
+     const documents = await TopicModel.find({ _id: { $in: arrayOfIds } }).select('-description');
+     res.json(documents);
+  
+    }else{
+
+        res.send({"Error":"User Not send"});
+    }
+};
+
+exports.getTags = async (req, res, next) => { 
+    let page = 1;
+    if(req.query.page){
+        page = req.query.page;
+    }
+ 
+    let limit = 5;
+    if(req.query.limit){
+        limit = req.query.limit;
+    }
+
+    if(req.headers['uuid-key']){
+        const UserId = req.headers['uuid-key'].toString();    
+    
+        let uuidDocument = await UUID.findOne({ uuid: UserId });
+
+        if(uuidDocument==null){ // IF USER IS NOT FOUND CREATE NEW USER
+            await new UUID({
+                uuid: UserId,
+                bookmarks: [],
+                topics: [],
+                tags: []            
+            }).save();
+        }
+    
+
+    const arrayOfIds = await UUID.findOne({uuid:UserId},'tags -_id')
+     .then(document => document.tags.slice((page-1)*limit)  // Skip the first item
+     .slice(0, limit));
+
+        res.send( arrayOfIds );
+
+  
+    }else{
+
+        res.send({"Error":"User Not send"});
+    }
 };
